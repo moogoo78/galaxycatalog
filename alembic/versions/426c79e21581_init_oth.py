@@ -1,8 +1,8 @@
-"""init
+"""init-oth
 
-Revision ID: b8df0a2d2e87
-Revises: 
-Create Date: 2021-11-18 20:19:13.554253
+Revision ID: 426c79e21581
+Revises: bfa96c3746bb
+Create Date: 2021-11-19 04:04:30.224742
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'b8df0a2d2e87'
-down_revision = None
+revision = '426c79e21581'
+down_revision = 'bfa96c3746bb'
 branch_labels = None
 depends_on = None
 
@@ -30,39 +30,13 @@ def upgrade():
     sa.Column('label', sa.String(length=500), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('organization',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=500), nullable=True),
-    sa.Column('abbreviation', sa.String(length=500), nullable=True),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('taxon',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('rank', sa.String(length=50), nullable=True),
-    sa.Column('full_scientific_name', sa.String(length=500), nullable=True),
-    sa.Column('first_epithet', sa.String(length=500), nullable=True),
-    sa.Column('infraspecific_epithet', sa.String(length=500), nullable=True),
-    sa.Column('author', sa.String(length=500), nullable=True),
-    sa.Column('canonical_name', sa.String(length=500), nullable=True),
-    sa.Column('status', sa.String(length=50), nullable=True),
-    sa.Column('source_data', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('dataset',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=500), nullable=True),
-    sa.Column('organization_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['organization_id'], ['organization.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
-    )
     op.create_table('named_area',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=500), nullable=True),
     sa.Column('name_other', sa.String(length=500), nullable=True),
     sa.Column('code', sa.String(length=500), nullable=True),
-    sa.Column('area_class', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['area_class'], ['area_class.id'], ),
+    sa.Column('area_class_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['area_class_id'], ['area_class.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('person',
@@ -74,7 +48,7 @@ def upgrade():
     sa.Column('is_identifier', sa.Boolean(), nullable=True),
     sa.Column('source_data', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('organization_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['organization_id'], ['organization.id'], ),
+    sa.ForeignKeyConstraint(['organization_id'], ['organization.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('gathering',
@@ -104,12 +78,13 @@ def upgrade():
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('gather_person_other',
-    sa.Column('gathering_id', sa.Integer(), nullable=False),
-    sa.Column('person_id', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('gathering_id', sa.Integer(), nullable=True),
+    sa.Column('person_id', sa.Integer(), nullable=True),
     sa.Column('role', sa.String(length=50), nullable=True),
-    sa.ForeignKeyConstraint(['gathering_id'], ['gathering.id'], ),
-    sa.ForeignKeyConstraint(['person_id'], ['person.id'], ),
-    sa.PrimaryKeyConstraint('gathering_id', 'person_id')
+    sa.ForeignKeyConstraint(['gathering_id'], ['gathering.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['person_id'], ['person.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('unit',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -118,8 +93,8 @@ def upgrade():
     sa.Column('changed', sa.DateTime(), nullable=True),
     sa.Column('kind_of_unit', sa.String(length=500), nullable=True),
     sa.Column('field_number', sa.String(length=500), nullable=True),
-    sa.Column('gather_id', sa.Integer(), nullable=True),
-    sa.Column('accession', sa.String(length=500), nullable=True),
+    sa.Column('gathering_id', sa.Integer(), nullable=True),
+    sa.Column('accession_number', sa.String(length=500), nullable=True),
     sa.Column('acquisition_type', sa.String(length=500), nullable=True),
     sa.Column('acquisition_date', sa.DateTime(), nullable=True),
     sa.Column('acquired_from', sa.Integer(), nullable=True),
@@ -127,15 +102,15 @@ def upgrade():
     sa.Column('source_data', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('information_withheld', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['acquired_from'], ['person.id'], ),
-    sa.ForeignKeyConstraint(['dataset_id'], ['dataset.id'], ),
-    sa.ForeignKeyConstraint(['gather_id'], ['gathering.id'], ),
+    sa.ForeignKeyConstraint(['dataset_id'], ['dataset.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['gathering_id'], ['gathering.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('identification',
+    op.create_table('identinulfication',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('unit_id', sa.Integer(), nullable=True),
     sa.Column('identifier', sa.Integer(), nullable=True),
-    sa.Column('taxon', sa.Integer(), nullable=True),
+    sa.Column('taxon_id', sa.Integer(), nullable=True),
     sa.Column('date', sa.DateTime(), nullable=True),
     sa.Column('date_text', sa.String(length=50), nullable=True),
     sa.Column('created', sa.DateTime(), nullable=True),
@@ -143,9 +118,9 @@ def upgrade():
     sa.Column('verification_level', sa.String(length=50), nullable=True),
     sa.Column('reference', sa.Text(), nullable=True),
     sa.Column('note', sa.Text(), nullable=True),
-    sa.ForeignKeyConstraint(['identifier'], ['person.id'], ),
-    sa.ForeignKeyConstraint(['taxon'], ['taxon.id'], ),
-    sa.ForeignKeyConstraint(['unit_id'], ['unit.id'], ),
+    sa.ForeignKeyConstraint(['identifier'], ['person.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['taxon_id'], ['taxon.id'], ondelete='set NULL'),
+    sa.ForeignKeyConstraint(['unit_id'], ['unit.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###
@@ -153,16 +128,13 @@ def upgrade():
 
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_table('identification')
+    op.drop_table('identinulfication')
     op.drop_table('unit')
     op.drop_table('gather_person_other')
     op.drop_table('specimen_mark')
     op.drop_table('gathering')
     op.drop_table('person')
     op.drop_table('named_area')
-    op.drop_table('dataset')
-    op.drop_table('taxon')
-    op.drop_table('organization')
     op.drop_table('area_class')
     op.drop_table('annotation')
     # ### end Alembic commands ###

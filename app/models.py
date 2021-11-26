@@ -18,6 +18,12 @@ from app.utils import get_time
 from app.database import Base
 from app.taxon.models import Taxon
 
+#class UnitAnnotation(Base):
+#    __tablename__ = 'unit_annotation'
+    #id = Column(Integer, primary_key=True)
+#    unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True, primary_key=True)
+#    annotation_id =  Column(Integer, ForeignKey('annotation.id', ondelete='SET NULL'), nullable=True, primary_key=True)
+
 class Annotation(Base):
 
     # CAT_CHOICES = (
@@ -36,6 +42,7 @@ class Annotation(Base):
     # )
     __tablename__ = 'annotation'
     id = Column(Integer, primary_key=True)
+    unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True, primary_key=True)
     text = Column(String(500))
     # todo: english
     # abcd: Annotator
@@ -64,13 +71,23 @@ class NamedArea(Base):
     __tablename__ = 'named_area'
     id = Column(Integer, primary_key=True)
     name = Column(String(500))
-    name_other = Column(String(500))
+    name_en = Column(String(500))
     code = Column(String(500))
     #code_standard = models.CharField(max_length=1000, null=True)
     area_class_id = Column(Integer, ForeignKey('area_class.id', ondelete='SET NULL'), nullable=True)
-    area_class = relationship('AreaClass', backref=backref('named_area', passive_delete=True))
+    area_class = relationship('AreaClass', backref=backref('named_area'))
     #source_data = models.JSONField(default=dict, blank=True)
     #parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True)
+
+class GatheringNamedArea(Base):
+    __tablename__ = 'gathering_named_area'
+    id = Column(Integer, primary_key=True)
+    gathering_id = Column(Integer, ForeignKey('gathering.id', ondelete='SET NULL'), nullable=True)
+    named_area_id = Column(Integer, ForeignKey('named_area.id', ondelete='SET NULL'), nullable=True)
+    #units = relationship('Unit')
+
+
+
 
 
 class Identification(Base):
@@ -88,7 +105,7 @@ class Identification(Base):
     unit = relationship('Unit')
     identifier = Column(Integer, ForeignKey('person.id', ondelete='SET NULL'), nullable=True)
     taxon_id = Column(Integer, ForeignKey('taxon.id', ondelete='set NULL'), nullable=True)
-    taxon = relationship('Taxon', backref=backref('taxon', passive_deletes=True))
+    taxon = relationship('Taxon', backref=backref('taxon'))
     date = Column(DateTime)
     date_text = Column(String(50)) #格式不完整的鑑訂日期, helper: ex: 1999-1
     created = Column(DateTime, default=get_time)
@@ -98,9 +115,16 @@ class Identification(Base):
     reference = Column(Text)
     note = Column(Text)
 
+#class UnitSpecimenMark(Base):
+#    __tablename__ = 'unit_specimen_mark'
+#    id = Column(Integer, primary_key=True)
+#    unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True)
+#    specimen_mark_id = Column(Integer, ForeignKey('specimen_mark.id', ondelete='SET NULL'), nullable=True)
+
 class SpecimenMark(Base):
-    __tablename__ = 'specimen_mark'
+    __tablename__ = 'unit_mark'
     id = Column(Integer, primary_key=True)
+    unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True)
     mark_type = Column(String(50)) # qrcode, rfid
     mark_text = Column(String(500))
     mark_author = Column(Integer, ForeignKey('person.id'))
@@ -134,7 +158,7 @@ class Gathering(Base):
     locality_text2 = Column(String(500))
 
     #country
-    name_areas = relationship('NamedArea')
+    name_areas = relationship('GatheringNamedArea')
 
     altitude = Column(Integer)
     altitude2 = Column(Integer)
@@ -167,7 +191,7 @@ class Unit(Base):
     changed = Column(DateTime, default=get_time, onupdate=get_time) # abcd: DateModified
     #last_editor = Column(String(500))
     #owner
-    identifications = relationship('Identification', backref=backref('units', passive_deletes=True))
+    identifications = relationship('Identification', backref=backref('units'))
     kind_of_unit = Column(String(500)) # herbarium sheet, leaf, muscle, leg, blood, ...
     # multimedia_objects
     # assemblages
@@ -188,7 +212,7 @@ class Unit(Base):
     acquisition_date = Column(DateTime)
     acquired_from = Column(Integer, ForeignKey('person.id'), nullable=True)
     acquisition_source_text = Column(Text)
-    marks = relationship('Mark')
+    specimen_marks = relationship('SpecimenMark')
 
     # abcd: Disposition (in collection/missing...)
     # specimen_measurement_or_fact
@@ -198,15 +222,22 @@ class Unit(Base):
     annotations = relationship('Annotation')
 
 class Person(Base):
+    '''
+    full_name => original name
+    atomized_name => by language (en, ...), contains: given_name, inherited_name
+    '''
     __tablename__ = 'person'
     id = Column(Integer, primary_key=True)
-    name = Column(String(500))
-    given_name = Column(String(500)) # first name
-    inherited_name = Column(String(500)) # last name
+    full_name = Column(String(500)) # abcd: FullName
+    atomized_name = Column(JSONB)
+    sorting_name = Column(JSONB)
+    abbreviated_name = Column(String(500))
+    preferredName = Column(String(500))
     is_collector = Column(Boolean, default=False)
     is_identifier = Column(Boolean, default=False)
     source_data = Column(JSONB)
     organization_id = Column(Integer, ForeignKey('organization.id', ondelete='SET NULL'), nullable=True)
+    organization = Column(String(500))
 
 class Organization(Base):
     __tablename__ = 'organization'

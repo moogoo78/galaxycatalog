@@ -5,6 +5,7 @@ from sqlalchemy import (
     String,
     Text,
     DateTime,
+    Date,
     Boolean,
     ForeignKey,
 )
@@ -16,7 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from app.utils import get_time
 from app.database import Base
-from app.taxon.models import Taxon
+from app.taxon.models import ScientificName
 
 #class UnitAnnotation(Base):
 #    __tablename__ = 'unit_annotation'
@@ -24,22 +25,42 @@ from app.taxon.models import Taxon
 #    unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True, primary_key=True)
 #    annotation_id =  Column(Integer, ForeignKey('annotation.id', ondelete='SET NULL'), nullable=True, primary_key=True)
 
+#class MeasurementOrFactParamenter
+# dataset_id
+# parameter_choices
+
+class MeasurementOrFact(Base):
+    __tablename__ = 'measurement_or_fact'
+
+    PARAMETER_CHOICES = (
+        ('veget','植群型'),
+        ('topography', '地形位置'),
+        ('naturalness','自然度'),
+        ('light-intensity','環境光度'),
+        ('humidity','環境濕度'),
+        ('abundance','豐富度'),
+        ('life-form', '生長型'),
+        ('flower', '花'),
+        ('fruit', '果'),
+        ('flower-color', '花色'),
+        ('fruit-color', '果色'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    gathering_id = Column(ForeignKey('gathering.id', ondelete='SET NULL'))
+    parameter = Column(String(500))
+    text = Column(String(500))
+    #lower_value
+    #upper_value
+    #accuracy
+    #measured_by
+    #unit_of_measurement
+    #applies_to
+
+
+
 class Annotation(Base):
 
-    # CAT_CHOICES = (
-    #     ('flower', '花'),
-    #     ('fruit', '果'),
-    #     ('flower-color', '花色'),
-    #     ('fruit-color', '果色'),
-    #     ('life-form', '生長型'),
-    #     ('veget','植群型'),
-    #     ('habitat','微生育地'),
-    #     ('light-intensity','環境光度'),
-    #     ('humidity','環境濕度'),
-    #     ('topography', '地形位置'),
-    #     ('abundance','豐富度'),
-    #     ('naturalness','自然度'),
-    # )
     __tablename__ = 'annotation'
     id = Column(Integer, primary_key=True)
     unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True, primary_key=True)
@@ -76,7 +97,7 @@ class NamedArea(Base):
     #code_standard = models.CharField(max_length=1000, null=True)
     area_class_id = Column(Integer, ForeignKey('area_class.id', ondelete='SET NULL'), nullable=True)
     area_class = relationship('AreaClass', backref=backref('named_area'))
-    #source_data = models.JSONField(default=dict, blank=True)
+    source_data = Column(JSONB)
     #parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True)
 
 class GatheringNamedArea(Base):
@@ -99,13 +120,13 @@ class Identification(Base):
     #     ('3', '四次鑑定'),
     #)
 
-    __tablename__ = 'identinulfication'
+    __tablename__ = 'identification'
     id = Column(Integer, primary_key=True)
     unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True)
-    unit = relationship('Unit')
+    unit = relationship('Unit', back_populates='identifications')
     identifier = Column(Integer, ForeignKey('person.id', ondelete='SET NULL'), nullable=True)
-    taxon_id = Column(Integer, ForeignKey('taxon.id', ondelete='set NULL'), nullable=True)
-    taxon = relationship('Taxon', backref=backref('taxon'))
+    scientific_name_id = Column(Integer, ForeignKey('scientific_name.id', ondelete='set NULL'), nullable=True)
+    scientific_name = relationship('ScientificName', backref=backref('scientific_name'))
     date = Column(DateTime)
     date_text = Column(String(50)) #格式不完整的鑑訂日期, helper: ex: 1999-1
     created = Column(DateTime, default=get_time)
@@ -147,15 +168,18 @@ class Gathering(Base):
     #method
 
     collect_date = Column(DateTime) # abcd: Date
-    collect_date_text = Column(String(500))
+    collect_date_text = Column(String(500)) # DEPRECATED
     # abcd: GatheringAgent, DiversityCollectinoModel: CollectionAgent
     collector_id = Column(Integer, ForeignKey('person.id'))
     companions = relationship('GatheringPerson') # companion
-    collector_text = Column(String(500)) # unformatted value
+    collector_text = Column(String(500)) # unformatted value, # HAST:companions
+
+    biotope = Column(String(500))
+    measurement_or_facts = relationship('MeasurementOrFact')
 
     # Locality
     locality_text = Column(String(500))
-    locality_text2 = Column(String(500))
+    locality_text2 = Column(String(500)) #DEPRICATED
 
     #country
     name_areas = relationship('GatheringNamedArea')
@@ -166,7 +190,7 @@ class Gathering(Base):
 
     # Coordinate
     latitude_decimal = Column(Numeric(precision=9, scale=6))
-    longtitude_decimal = Column(Numeric(precision=9, scale=6))
+    longitude_decimal = Column(Numeric(precision=9, scale=6))
     verbatim_latitude = Column(String(50))
     verbatim_longitude = Column(String(50))
 
@@ -176,13 +200,16 @@ class FieldNumber(Base):
     __tablename__ = 'field_number'
     id = Column(Integer, primary_key=True)
     unit_id = Column(Integer, ForeignKey('unit.id', ondelete='SET NULL'), nullable=True)
-    collector_number = Column(String(500)) # dwc: recordNumber
+    record_number = Column(String(500)) # dwc: recordNumber
+    record_number2 = Column(String(500)) # for HAST dupNo.
     collector_id = Column(Integer, ForeignKey('person.id'))
     collector_name = Column(String(500), nullable=True) # abbr. collector's name
 
 
 class Unit(Base):
-    '''specimen or observation record'''
+    '''mixed abcd: SpecimenUnit/ObservationUnit (phycal state-specific subtypes of the unit reocrd)
+    BotanicalUnit/HerbariumUnit/ZoologicalUnit/PaleontologicalUnit
+    '''
     __tablename__ = 'unit'
     id = Column(Integer, primary_key=True)
     #guid =
@@ -191,22 +218,23 @@ class Unit(Base):
     changed = Column(DateTime, default=get_time, onupdate=get_time) # abcd: DateModified
     #last_editor = Column(String(500))
     #owner
-    identifications = relationship('Identification', backref=backref('units'))
+    identifications = relationship('Identification', back_populates='unit')
     kind_of_unit = Column(String(500)) # herbarium sheet, leaf, muscle, leg, blood, ...
     # multimedia_objects
     # assemblages
     # associations
     # sequences
-    # measurements_or_facts
-    # sex
-    # age
+    sex = Column(String(500))
+    age = Column(String(500))
     #field_number = Column(String(500))
     field_numbers = relationship('FieldNumber')
     gathering_id = Column(Integer, ForeignKey('gathering.id', ondelete='SET NULL'), nullable=True)
     # abcd: SpecimenUnit
     #accessions = relationship('') multiple
     accession_number = Column(String(500))
-    #preparations = TODO
+    #abcd:preparations
+    preparation_type = Column(String(500)) #specimens, tissues, DNA
+    preparation_date = Column(Date)
     # abcd: Acquisition
     acquisition_type = Column(String(500)) # bequest, purchase, donation
     acquisition_date = Column(DateTime)

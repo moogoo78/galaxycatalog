@@ -24,9 +24,9 @@ from app.models import (
     AreaClass,
     Identification,
     SpecimenMark,
-    GatheringPerson,
-    Annotation,
-    Gathering,
+    CollectionPerson,
+    #Annotation,
+    Collection,
     Unit,
     Person,
 )
